@@ -15,8 +15,12 @@ namespace MediaBrowser.Model.Configuration
         public EmulatorProfile()
         {
             Id = Guid.NewGuid().ToString("N");
+            Name = string.Empty;
             Platforms = Array.Empty<string>();
             FileExtensions = Array.Empty<string>();
+            ExecutablePath = string.Empty;
+            CommandLineArgs = string.Empty;
+            SunshineAppName = string.Empty;
         }
 
         /// <summary>
@@ -32,13 +36,13 @@ namespace MediaBrowser.Model.Configuration
         /// <summary>
         /// Gets or sets the platforms/consoles this emulator supports.
         /// </summary>
-        /// <example>["Nintendo 64", "PlayStation"]</example>
+        /// <example>["Nintendo 64", "PlayStation"].</example>
         public string[] Platforms { get; set; }
 
         /// <summary>
         /// Gets or sets the file extensions this emulator handles.
         /// </summary>
-        /// <example>[".n64", ".z64", ".iso"]</example>
+        /// <example>[".n64", ".z64", ".iso"].</example>
         public string[] FileExtensions { get; set; }
 
         /// <summary>
@@ -50,7 +54,7 @@ namespace MediaBrowser.Model.Configuration
         /// Gets or sets the command line arguments template.
         /// Use {rom} as placeholder for the ROM path.
         /// </summary>
-        /// <example>-L /path/to/core.so "{rom}"</example>
+        /// <example>-L /path/to/core.so "{rom}".</example>
         public string CommandLineArgs { get; set; }
 
         /// <summary>
