@@ -13,6 +13,7 @@ GitPilot provides GitHub issue and PR management via API. This document explains
 | NickyV2 | 5 | `/api/repos/5/create_pr` |
 | GooseFlix | 6 | `/api/repos/6/create_pr` |
 | GitPilot | 7 | `/api/repos/7/create_pr` |
+| Jellyfin | 8 | `/api/repos/8/create_pr` |
 
 ---
 
@@ -134,6 +135,7 @@ The PR will update automatically.
 | `403` on git push | Wrong branch name | Must start with `claude/` and end with session ID |
 | `404` on API call | Wrong repo name | Check spelling (case-insensitive) |
 | `400` on create issue | Missing fields | Include `repo`, `title`, `type` |
+| `400` on create PR | Branch not on GitHub | Push branch first: `git push -u origin <branch>` |
 
 If GitPilot is down, inform the user and use regular git/GitHub workflow.
 
