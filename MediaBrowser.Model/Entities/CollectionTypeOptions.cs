@@ -45,5 +45,10 @@ public enum CollectionTypeOptions
     /// <summary>
     /// Mixed Movies and TV Shows.
     /// </summary>
-    mixed = 7
+    mixed = 7,
+
+    /// <summary>
+    /// Games (ROMs and game files).
+    /// </summary>
+    games = 8
 }

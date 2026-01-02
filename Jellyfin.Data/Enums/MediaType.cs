@@ -28,5 +28,10 @@ public enum MediaType
     /// <summary>
     /// Book media.
     /// </summary>
-    Book = 4
+    Book = 4,
+
+    /// <summary>
+    /// Game media (ROMs, game files).
+    /// </summary>
+    Game = 5
 }
