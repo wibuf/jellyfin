@@ -64,6 +64,11 @@ namespace Jellyfin.Data.Enums
         Folder,
 
         /// <summary>
+        /// Item is game.
+        /// </summary>
+        Game,
+
+        /// <summary>
         /// Item is genre.
         /// </summary>
         Genre,
