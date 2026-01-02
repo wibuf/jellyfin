@@ -530,6 +530,11 @@ namespace Emby.Server.Implementations.Dto
             dto.SeriesName = item.SeriesName;
         }
 
+        private static void SetGameProperties(BaseItemDto dto, MediaBrowser.Controller.Entities.Games.Game item)
+        {
+            dto.GamePlatform = item.Platform;
+        }
+
         private static void SetPhotoProperties(BaseItemDto dto, Photo item)
         {
             dto.CameraMake = item.CameraMake;
@@ -1301,6 +1306,11 @@ namespace Emby.Server.Implementations.Dto
             if (item is Book book)
             {
                 SetBookProperties(dto, book);
+            }
+
+            if (item is MediaBrowser.Controller.Entities.Games.Game game)
+            {
+                SetGameProperties(dto, game);
             }
 
             if (options.ContainsField(ItemFields.ProductionLocations))

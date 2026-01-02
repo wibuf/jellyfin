@@ -341,6 +341,12 @@ namespace MediaBrowser.Model.Dto
         public string SeriesName { get; set; }
 
         /// <summary>
+        /// Gets or sets the game platform/console (e.g., "Nintendo 64", "PlayStation").
+        /// </summary>
+        /// <value>The game platform.</value>
+        public string GamePlatform { get; set; }
+
+        /// <summary>
         /// Gets or sets the series id.
         /// </summary>
         /// <value>The series id.</value>
