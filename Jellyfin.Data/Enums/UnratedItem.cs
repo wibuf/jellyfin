@@ -48,6 +48,11 @@ namespace Jellyfin.Data.Enums
         /// <summary>
         /// Another type, not covered by the other fields.
         /// </summary>
-        Other = 8
+        Other = 8,
+
+        /// <summary>
+        /// A game.
+        /// </summary>
+        Game = 9
     }
 }
