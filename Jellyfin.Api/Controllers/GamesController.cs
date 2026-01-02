@@ -1,15 +1,18 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Linq;
 using Jellyfin.Api.Extensions;
 using Jellyfin.Api.Helpers;
 using Jellyfin.Api.ModelBinders;
 using Jellyfin.Data.Enums;
 using Jellyfin.Extensions;
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Games;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Querying;
 using Microsoft.AspNetCore.Authorization;
@@ -29,6 +32,7 @@ public class GamesController : BaseJellyfinApiController
     private readonly IUserManager _userManager;
     private readonly ILibraryManager _libraryManager;
     private readonly IDtoService _dtoService;
+    private readonly IServerConfigurationManager _configurationManager;
     private readonly ILogger<GamesController> _logger;
 
     /// <summary>
@@ -37,16 +41,19 @@ public class GamesController : BaseJellyfinApiController
     /// <param name="userManager">Instance of the <see cref="IUserManager"/> interface.</param>
     /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
     /// <param name="dtoService">Instance of the <see cref="IDtoService"/> interface.</param>
+    /// <param name="configurationManager">Instance of the <see cref="IServerConfigurationManager"/> interface.</param>
     /// <param name="logger">Instance of the <see cref="ILogger{GamesController}"/> interface.</param>
     public GamesController(
         IUserManager userManager,
         ILibraryManager libraryManager,
         IDtoService dtoService,
+        IServerConfigurationManager configurationManager,
         ILogger<GamesController> logger)
     {
         _userManager = userManager;
         _libraryManager = libraryManager;
         _dtoService = dtoService;
+        _configurationManager = configurationManager;
         _logger = logger;
     }
 
@@ -157,8 +164,8 @@ public class GamesController : BaseJellyfinApiController
     /// Launches a game. Returns launch information for the game streaming client.
     /// </summary>
     /// <remarks>
-    /// This is a stub endpoint for Moonlight/Sunshine integration.
-    /// In the future, this will trigger the game launch on the configured streaming server.
+    /// Returns emulator configuration based on the game's platform and file extension.
+    /// If Sunshine streaming is configured, includes Sunshine app information.
     /// </remarks>
     /// <param name="itemId">The item id of the game to launch.</param>
     /// <response code="200">Game launch info returned.</response>
@@ -178,18 +185,62 @@ public class GamesController : BaseJellyfinApiController
 
         _logger.LogInformation("Game launch requested: {GameName} ({GameId})", game.Name, game.Id);
 
-        // TODO: Integrate with Sunshine/Moonlight to actually launch the game
-        // For now, return the information needed by a client to initiate streaming
-        return new GameLaunchInfo
+        var gamingOptions = _configurationManager.Configuration.GamingOptions;
+        var romPath = game.RomPath ?? game.Path;
+        var fileExtension = Path.GetExtension(romPath);
+
+        // Find matching emulator profile
+        EmulatorProfile? emulatorProfile = null;
+        if (gamingOptions?.EmulatorProfiles is not null)
+        {
+            // First try to match by platform
+            emulatorProfile = gamingOptions.EmulatorProfiles
+                .FirstOrDefault(p => p.IsEnabled && p.Platforms.Contains(game.Platform, StringComparer.OrdinalIgnoreCase));
+
+            // If no match, try by file extension
+            emulatorProfile ??= gamingOptions.EmulatorProfiles
+                .FirstOrDefault(p => p.IsEnabled && p.FileExtensions.Contains(fileExtension, StringComparer.OrdinalIgnoreCase));
+
+            // Fall back to default profile
+            if (emulatorProfile is null && !string.IsNullOrEmpty(gamingOptions.DefaultEmulatorProfileId))
+            {
+                emulatorProfile = gamingOptions.EmulatorProfiles
+                    .FirstOrDefault(p => p.Id == gamingOptions.DefaultEmulatorProfileId);
+            }
+        }
+
+        var launchInfo = new GameLaunchInfo
         {
             GameId = game.Id,
             GameName = game.Name,
             Platform = game.Platform,
-            RomPath = game.RomPath ?? game.Path,
+            RomPath = romPath,
             EmulatorId = game.EmulatorId,
-            Status = "ready",
-            Message = "Game launch endpoint ready. Moonlight/Sunshine integration pending."
+            Status = "ready"
         };
+
+        if (emulatorProfile is not null)
+        {
+            launchInfo.EmulatorName = emulatorProfile.Name;
+            launchInfo.EmulatorPath = emulatorProfile.ExecutablePath;
+            launchInfo.CommandLineArgs = emulatorProfile.CommandLineArgs?.Replace("{rom}", romPath);
+            launchInfo.SunshineAppName = emulatorProfile.SunshineAppName;
+            launchInfo.Message = $"Launch with {emulatorProfile.Name}";
+        }
+        else
+        {
+            launchInfo.Message = "No emulator configured for this platform. Configure emulators in server settings.";
+        }
+
+        // Include Sunshine streaming info if configured
+        if (gamingOptions?.UseSunshineStreaming == true && !string.IsNullOrEmpty(gamingOptions.SunshineHost))
+        {
+            launchInfo.SunshineHost = gamingOptions.SunshineHost;
+            launchInfo.SunshinePort = gamingOptions.SunshinePort;
+            launchInfo.UseSunshineStreaming = true;
+        }
+
+        return launchInfo;
     }
 }
 
@@ -219,9 +270,44 @@ public class GameLaunchInfo
     public string? RomPath { get; set; }
 
     /// <summary>
-    /// Gets or sets the emulator configuration to use.
+    /// Gets or sets the emulator configuration ID from the game.
     /// </summary>
     public string? EmulatorId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the matched emulator.
+    /// </summary>
+    public string? EmulatorName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the path to the emulator executable.
+    /// </summary>
+    public string? EmulatorPath { get; set; }
+
+    /// <summary>
+    /// Gets or sets the command line arguments for launching.
+    /// </summary>
+    public string? CommandLineArgs { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Sunshine app name for streaming.
+    /// </summary>
+    public string? SunshineAppName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Sunshine server host.
+    /// </summary>
+    public string? SunshineHost { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Sunshine server port.
+    /// </summary>
+    public int? SunshinePort { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to use Sunshine for streaming.
+    /// </summary>
+    public bool UseSunshineStreaming { get; set; }
 
     /// <summary>
     /// Gets or sets the launch status.

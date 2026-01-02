@@ -288,4 +288,9 @@ public class ServerConfiguration : BaseApplicationConfiguration
     /// Gets or sets a value indicating whether old authorization methods are allowed.
     /// </summary>
     public bool EnableLegacyAuthorization { get; set; }
+
+    /// <summary>
+    /// Gets or sets the gaming/emulation options.
+    /// </summary>
+    public GamingOptions GamingOptions { get; set; } = new GamingOptions();
 }
