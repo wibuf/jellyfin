@@ -15,6 +15,8 @@ namespace MediaBrowser.Model.Configuration
         public GamingOptions()
         {
             EmulatorProfiles = Array.Empty<EmulatorProfile>();
+            SunshineHost = string.Empty;
+            DefaultEmulatorProfileId = string.Empty;
         }
 
         /// <summary>
@@ -30,7 +32,7 @@ namespace MediaBrowser.Model.Configuration
         /// <summary>
         /// Gets or sets the Sunshine server host for game streaming.
         /// </summary>
-        /// <example>192.168.1.100</example>
+        /// <example>192.168.1.100.</example>
         public string SunshineHost { get; set; }
 
         /// <summary>
