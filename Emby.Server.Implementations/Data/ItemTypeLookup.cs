@@ -5,6 +5,7 @@ using Emby.Server.Implementations.Playlists;
 using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
+using MediaBrowser.Controller.Entities.Games;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.LiveTv;
@@ -37,6 +38,7 @@ public class ItemTypeLookup : IItemTypeLookup
         { BaseItemKind.CollectionFolder, typeof(CollectionFolder).FullName! },
         { BaseItemKind.Episode, typeof(Episode).FullName! },
         { BaseItemKind.Folder, typeof(Folder).FullName! },
+        { BaseItemKind.Game, typeof(Game).FullName! },
         { BaseItemKind.Genre, typeof(Genre).FullName! },
         { BaseItemKind.Movie, typeof(Movie).FullName! },
         { BaseItemKind.LiveTvChannel, typeof(LiveTvChannel).FullName! },
