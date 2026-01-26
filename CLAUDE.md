@@ -1,0 +1,504 @@
+# GitPilot Issue Management API
+
+GitPilot provides GitHub issue and PR management via API. This document explains how AI agents should use it.
+
+## Repository ID Mapping
+
+| Repository | ID | Example Endpoint |
+|------------|-----|------------------|
+| OptionBot | 1 | `/api/repos/1/create_pr` |
+| CryptoBot | 2 | `/api/repos/2/create_pr` |
+| BetBot | 3 | `/api/repos/3/create_pr` |
+| Studio | 4 | `/api/repos/4/create_pr` |
+| NickyV2 | 5 | `/api/repos/5/create_pr` |
+| GooseFlix | 6 | `/api/repos/6/create_pr` |
+| GitPilot | 7 | `/api/repos/7/create_pr` |
+| Bacon | 8 | `/api/repos/8/create_pr` |
+| Jellyfin | 10 | `/api/repos/10/create_pr` |
+| jellyfin-web | 11 | `/api/repos/11/create_pr` |
+
+---
+
+## AI Agent Workflow
+
+Follow these 5 steps for any issue-tracked work:
+
+### Step 1: Create Issue (if needed)
+
+```bash
+curl -X POST https://pilot.grit.bot/api/issues \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo": "GitPilot",
+    "title": "Fix authentication bug",
+    "type": "bug",
+    "body": "Users cannot login via OAuth",
+    "skip_review": true
+  }'
+```
+
+**Note:** Always include `"skip_review": true` when creating issues as an AI agent. This prevents redundant auto-review since you're already providing context.
+
+**Response:**
+```json
+{
+  "id": 353,
+  "github_issue": 93,
+  "url": "https://github.com/wibuf/GitPilot/issues/93"
+}
+```
+
+Save the `github_issue` number (e.g., `93`) - you'll reference it in your commit.
+
+**Issue Types:** `bug`, `feat`, `docs`, `refactor`, `test`, `chore`
+
+### Step 2: Implement Changes
+
+- Edit files on your branch (`claude/...-sessionId`)
+- Commit with a message that references the issue:
+
+```bash
+git add .
+git commit -m "fix: Resolve OAuth callback bug
+
+Closes #93"
+```
+
+The `Closes #XX` will auto-close the issue when merged.
+
+### Step 3: Push Branch
+
+```bash
+git push -u origin claude/fix-auth-bug-sessionId
+```
+
+### Step 4: Create PR
+
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/7/create_pr \
+  -H "Content-Type: application/json" \
+  -d '{
+    "branch": "claude/fix-auth-bug-sessionId",
+    "title": "Fix OAuth authentication bug",
+    "body": "## Summary\n- Fixed callback handler\n- Added token validation\n\nCloses #93"
+  }'
+```
+
+**Response:**
+```json
+{
+  "pr_number": 94,
+  "pr_url": "https://github.com/wibuf/GitPilot/pull/94"
+}
+```
+
+**Always return the PR URL to the user** so they can review.
+
+### Step 5: User Reviews & Merges
+
+- User reviews the PR on GitHub
+- If conflicts: fetch main, resolve, push again
+- Once merged, issue auto-closes via `Closes #XX`
+
+---
+
+## When to Use GitPilot
+
+**Use GitPilot when:**
+- User asks to "create an issue" or "file a bug"
+- Implementing a significant feature or fix
+- Work should be tracked in GitHub
+
+**Skip GitPilot when:**
+- Trivial changes (typos, formatting)
+- User says "no issue needed"
+- Just exploring/reading code
+
+---
+
+## Deployment Modes
+
+### Standard Flow (Default)
+For significant features, bug fixes, or anything requiring review:
+1. Create issue → Implement → Create PR → **Stop and return PR URL to user**
+2. User reviews PR on GitHub
+3. User merges, pulls, and restarts services
+
+### Autonomous Deployment
+For small fixes where user explicitly authorizes deployment:
+1. Create issue → Implement → Create PR
+2. Merge via API: `POST /api/repos/<id>/merge_branch`
+3. Pull to server: `POST /api/repos/<id>/pull`
+4. Restart service: `POST /api/services/<id>/restart`
+5. Confirm to user: "Deployed and restarted. PR: [url]"
+
+**Use autonomous deployment when:**
+- User explicitly says "deploy it", "merge it", "ship it", or similar
+- User pre-approved the change (e.g., "fix it and deploy")
+- Typo/comment-only fixes user requested
+- Hotfixes user requested urgently
+
+**Never auto-deploy without explicit permission when:**
+- Database schema changes (migrations)
+- Security-sensitive code
+- User hasn't seen or approved the PR
+- Breaking/risky changes
+- New features (user should review first)
+
+---
+
+## Handling Conflicts
+
+### Via Git (Standard)
+
+```bash
+git fetch origin main
+git merge origin/main
+# Resolve conflicts in editor
+git add .
+git commit -m "Resolve merge conflicts"
+git push
+```
+
+### Via API (merge_branch conflicts)
+
+When `merge_branch` encounters conflicts, it returns a 409 response:
+
+```json
+{
+  "status": "conflict",
+  "conflicts": [
+    {"path": "app.py", "content": "<<<<<<< HEAD\n..."}
+  ],
+  "hint": "Use POST /api/repos/<id>/resolve_conflicts to resolve"
+}
+```
+
+**Resolve conflicts:**
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/7/resolve_conflicts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resolutions": [
+      {"path": "app.py", "resolution": "theirs"}
+    ]
+  }'
+```
+
+Resolution options:
+- `"resolution": "ours"` - Keep target branch version
+- `"resolution": "theirs"` - Keep source branch version
+- `"content": "..."` - Provide custom merged content
+
+**Abort merge:**
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/7/abort_merge
+```
+
+---
+
+## Error Handling
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `403` on git push | Wrong branch name | Must start with `claude/` and end with session ID |
+| `404` on API call | Wrong repo name | Check spelling (case-insensitive) |
+| `400` on create issue | Missing fields | Include `repo`, `title`, `type` |
+| `400` on create PR | Branch not on GitHub | Push branch first: `git push -u origin <branch>` |
+| `409` on merge_branch | Merge conflicts | Use resolve_conflicts or abort_merge |
+
+If GitPilot is down, inform the user and use regular git/GitHub workflow.
+
+### Before Adding Commits to a PR Branch
+
+Always check if the PR was already merged before pushing additional commits:
+
+```bash
+# Check PR status
+curl "https://pilot.grit.bot/api/prs?repo=GitPilot"
+```
+
+If the PR is already merged:
+1. Fetch latest main: `git fetch origin main`
+2. Reset branch to main: `git reset --hard origin/main`
+3. Make your changes on the fresh branch
+4. Create a new PR
+
+---
+
+## Quick Reference
+
+```bash
+# List open issues
+curl "https://pilot.grit.bot/api/issues?repo=GitPilot&state=open"
+
+# Create issue (AI agents should always skip_review)
+curl -X POST https://pilot.grit.bot/api/issues \
+  -H "Content-Type: application/json" \
+  -d '{"repo": "GitPilot", "title": "...", "type": "feat", "body": "...", "skip_review": true}'
+
+# Create PR
+curl -X POST https://pilot.grit.bot/api/repos/7/create_pr \
+  -H "Content-Type: application/json" \
+  -d '{"branch": "claude/...", "title": "...", "body": "..."}'
+
+# Direct merge (uses isolated worktree)
+curl -X POST https://pilot.grit.bot/api/repos/7/merge_branch \
+  -H "Content-Type: application/json" \
+  -d '{"branch": "claude/...", "into": "main"}'
+
+# Pull latest changes locally
+curl -X POST https://pilot.grit.bot/api/repos/7/pull
+
+# Restart service after pull
+curl -X POST https://pilot.grit.bot/api/services/1/restart
+```
+
+---
+
+## Full API Reference
+
+### Issues
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/issues` | List all issues |
+| GET | `/api/issues?repo=X&state=open` | Filter by repo and state |
+| POST | `/api/issues` | Create issue |
+| GET | `/api/issues/<id>` | Get single issue |
+| PUT | `/api/issues/<id>` | Update issue |
+| POST | `/api/issues/<id>/push` | Push updates to GitHub |
+| POST | `/api/issues/<id>/close` | Close issue |
+| POST | `/api/issues/<id>/reopen` | Reopen issue |
+| POST | `/api/issues/<id>/comment` | Add comment |
+
+### Pull Requests
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/prs` | List open PRs |
+| GET | `/api/prs?repo=X` | Filter by repo |
+| POST | `/api/repos/<id>/create_pr` | Create PR for any branch |
+| POST | `/api/repos/<id>/prs/<pr>/close` | Close PR without merging |
+
+### Repository Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/repos` | List all repositories |
+| GET | `/api/repos/<id>` | Get repository details |
+| PUT | `/api/repos/<id>` | Update repo settings (local_path, color, etc.) |
+| GET | `/api/repos/<id>/commits` | List recent commits |
+| GET | `/api/repos/<id>/branches_list` | List all branches |
+| DELETE | `/api/repos/<id>/branches` | Delete branch |
+| POST | `/api/repos/<id>/rollback` | Rollback to commit |
+| POST | `/api/repos/<id>/pull` | Pull latest from remote |
+
+### Branch Merging
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/repos/<id>/merge_branch` | Merge branch (uses worktree) |
+| POST | `/api/repos/<id>/resolve_conflicts` | Resolve merge conflicts |
+| POST | `/api/repos/<id>/abort_merge` | Abort merge and cleanup |
+
+**merge_branch parameters:**
+```json
+{
+  "branch": "source-branch",     // Required
+  "into": "main",                // Target branch (default: "main")
+  "squash": true,                // Squash commits (default: true)
+  "message": "Commit message",   // Custom message (optional)
+  "delete_branch": true,         // Delete after merge (default: true)
+  "push": true,                  // Push after merge (default: true)
+  "use_worktree": true           // Use isolated worktree (default: true)
+}
+```
+
+### Agent Settings
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/repos/<id>/agent/settings` | Get agent settings |
+| POST | `/api/repos/<id>/agent/settings` | Update agent settings |
+
+**Agent settings parameters:**
+```json
+{
+  "auto_review_enabled": true,   // Auto-review new issues
+  "auto_fix_enabled": false,     // Future: auto-fix issues
+  "preferred_model": "claude-sonnet-4-5-20250929"
+}
+```
+
+### Reminders
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/reminders` | List all reminders |
+| POST | `/api/reminders` | Create reminder |
+| GET | `/api/reminders/<id>` | Get single reminder |
+| PUT | `/api/reminders/<id>` | Update reminder |
+| DELETE | `/api/reminders/<id>` | Delete reminder |
+| POST | `/api/reminders/<id>/toggle` | Toggle active status |
+
+### Notes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notes?repo=X` | Get notes for repo |
+| POST | `/api/notes` | Save notes |
+| GET | `/api/notes/history?repo=X` | Get version history |
+| GET | `/api/notes/history/<id>` | Get specific version |
+
+### Services (Process Management)
+
+Manage running services/scripts for repositories. Each repo can have multiple services.
+
+**Finding Service IDs:** Query the services list to find the correct service ID:
+```bash
+curl "https://pilot.grit.bot/api/services"
+# Returns: [{"id": 1, "name": "CryptoBot API", "repo_id": 2, ...}, ...]
+```
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/services` | List all services |
+| GET | `/api/services?repo_id=X` | Filter by repo |
+| POST | `/api/services` | Create a new service |
+| GET | `/api/services/<id>` | Get service details |
+| PUT | `/api/services/<id>` | Update service |
+| DELETE | `/api/services/<id>` | Delete service |
+| POST | `/api/services/<id>/start` | Start the service |
+| POST | `/api/services/<id>/stop` | Stop the service |
+| POST | `/api/services/<id>/restart` | Restart the service |
+| GET | `/api/services/<id>/status` | Get status and logs |
+| GET | `/api/services/<id>/logs` | Get console output |
+| DELETE | `/api/services/<id>/logs` | Clear log buffer |
+| GET | `/api/services/status` | All services status |
+
+**Create service:**
+```bash
+curl -X POST https://pilot.grit.bot/api/services \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo_id": 6,
+    "name": "Adder",
+    "working_dir": "media adder",
+    "command": "python app.py"
+  }'
+```
+
+**Service parameters:**
+```json
+{
+  "repo_id": 6,              // Required: repository ID
+  "name": "Service Name",    // Required: display name
+  "working_dir": "subdir",   // Optional: subdirectory within repo
+  "command": "python app.py" // Optional: start command (auto-detects if omitted)
+}
+```
+
+**Auto-detect** checks for: `app.py`, `main.py`, `server.py`, `index.js`, `server.js`, `package.json`
+
+**Example: Full deployment workflow**
+```bash
+# 1. Merge the PR (uses isolated worktree, won't affect running service)
+curl -X POST https://pilot.grit.bot/api/repos/6/merge_branch \
+  -H "Content-Type: application/json" \
+  -d '{"branch": "claude/my-feature-abc123", "into": "main"}'
+
+# 2. Pull latest changes to the server's local repo
+curl -X POST https://pilot.grit.bot/api/repos/6/pull
+
+# 3. Restart the affected service to pick up changes
+curl -X POST https://pilot.grit.bot/api/services/3/restart
+```
+
+**Note:** The `merge_branch` endpoint uses an isolated git worktree, so it won't interfere with the running service's files. Always pull after merge to update the actual repo.
+
+**Example: Full Autonomous Hotfix Deployment**
+
+When user says "Fix it and deploy":
+
+```bash
+# 1. Create issue
+curl -X POST https://pilot.grit.bot/api/issues \
+  -H "Content-Type: application/json" \
+  -d '{"repo": "CryptoBot", "title": "Fix 500 error on /balance endpoint", "type": "bug", "body": "API returning 500 on balance check", "skip_review": true}'
+# Save the github_issue number from response
+
+# 2. Implement fix, commit with issue reference
+git add . && git commit -m "fix: Handle null balance response
+
+Closes #XX"
+
+# 3. Push branch
+git push -u origin claude/fix-balance-abc123
+
+# 4. Create PR
+curl -X POST https://pilot.grit.bot/api/repos/2/create_pr \
+  -H "Content-Type: application/json" \
+  -d '{"branch": "claude/fix-balance-abc123", "title": "Fix 500 error on /balance endpoint", "body": "Closes #XX"}'
+
+# 5. Merge PR (user authorized deployment)
+curl -X POST https://pilot.grit.bot/api/repos/2/merge_branch \
+  -H "Content-Type: application/json" \
+  -d '{"branch": "claude/fix-balance-abc123"}'
+
+# 6. Pull to server
+curl -X POST https://pilot.grit.bot/api/repos/2/pull
+
+# 7. Find and restart service
+curl "https://pilot.grit.bot/api/services?repo_id=2"  # Find service ID
+curl -X POST https://pilot.grit.bot/api/services/1/restart
+
+# 8. Report back to user
+# "Fixed and deployed. CryptoBot service restarted. PR: https://github.com/..."
+```
+
+### Sync
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/repos/scan` | Sync issues from GitHub |
+| POST | `/api/repos/sync_claude_md` | Sync CLAUDE.md to all repos |
+
+**sync_claude_md parameters:**
+```json
+{
+  "push": true,           // Push commits to remote (default: true)
+  "repos": ["Repo1"],     // Sync to specific repos only (default: all)
+  "dry_run": false        // Preview without making changes (default: false)
+}
+```
+
+**Example: Sync CLAUDE.md to all repos**
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/sync_claude_md \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**Example: Preview sync (dry run)**
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/sync_claude_md \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run": true}'
+```
+
+**Example: Sync to specific repos only**
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/sync_claude_md \
+  -H "Content-Type: application/json" \
+  -d '{"repos": ["CryptoBot", "GooseFlix"]}'
+```
+
+---
+
+## URLs
+
+- **Dashboard**: https://pilot.grit.bot
+- **API Base**: https://pilot.grit.bot/api
+
+GitPilot syncs with GitHub every 60 seconds automatically.
