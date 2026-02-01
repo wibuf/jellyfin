@@ -298,9 +298,14 @@ curl -X POST https://pilot.grit.bot/api/services/1/restart
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/repos/<id>/merge_branch` | Merge branch (uses worktree) |
+| POST | `/api/repos/<id>/merge_branch` | Merge branch (prefers GitHub API) |
 | POST | `/api/repos/<id>/resolve_conflicts` | Resolve merge conflicts |
 | POST | `/api/repos/<id>/abort_merge` | Abort merge and cleanup |
+
+**merge_branch behavior:**
+- If an open PR exists for the branch, uses GitHub API to merge it properly
+- Falls back to local git merge (worktree) if no PR exists or GitHub API fails
+- Response includes `merged_via: "github_api"` or `merged_via: "git_local"`
 
 **merge_branch parameters:**
 ```json
@@ -312,6 +317,18 @@ curl -X POST https://pilot.grit.bot/api/services/1/restart
   "delete_branch": true,         // Delete after merge (default: true)
   "push": true,                  // Push after merge (default: true)
   "use_worktree": true           // Use isolated worktree (default: true)
+}
+```
+
+**merge_branch response:**
+```json
+{
+  "status": "merged",
+  "repo": "GitPilot",
+  "branch": "claude/feature-xyz",
+  "into": "main",
+  "merged_via": "github_api",    // or "git_local"
+  "pr_number": 123               // Only if merged via GitHub API
 }
 ```
 
@@ -492,6 +509,43 @@ curl -X POST https://pilot.grit.bot/api/repos/sync_claude_md \
 curl -X POST https://pilot.grit.bot/api/repos/sync_claude_md \
   -H "Content-Type: application/json" \
   -d '{"repos": ["CryptoBot", "GooseFlix"]}'
+```
+
+### System (GitPilot Self-Management)
+
+GitPilot can monitor and update itself, pull updates, and restart automatically.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/system/status` | Get GitPilot version, uptime, update availability |
+| POST | `/api/system/check-updates` | Check for updates on origin/main |
+| POST | `/api/system/update` | Pull updates and restart GitPilot |
+| POST | `/api/system/restart` | Restart GitPilot without pulling |
+| GET | `/api/system/logs` | Get GitPilot's own logs |
+
+**Check for updates:**
+```bash
+curl -X POST https://pilot.grit.bot/api/system/check-updates
+```
+
+**Response:**
+```json
+{
+  "update_available": true,
+  "current_commit": "abc1234",
+  "remote_commit": "def5678",
+  "commits_behind": 3
+}
+```
+
+**Trigger update and restart:**
+```bash
+curl -X POST https://pilot.grit.bot/api/system/update
+```
+
+**Get system logs:**
+```bash
+curl "https://pilot.grit.bot/api/system/logs?lines=100"
 ```
 
 ---
