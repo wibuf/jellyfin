@@ -279,7 +279,29 @@ curl -X POST https://pilot.grit.bot/api/services/1/restart
 | GET | `/api/prs` | List open PRs |
 | GET | `/api/prs?repo=X` | Filter by repo |
 | POST | `/api/repos/<id>/create_pr` | Create PR for any branch |
+| GET | `/api/repos/<id>/prs/<pr>` | Get full PR details (body, comments, reviews, diff stats) |
+| PUT | `/api/repos/<id>/prs/<pr>` | Update PR title and/or body |
+| POST | `/api/repos/<id>/prs/<pr>/comment` | Add comment to a PR |
 | POST | `/api/repos/<id>/prs/<pr>/close` | Close PR without merging |
+
+**Get PR details:**
+```bash
+curl "https://pilot.grit.bot/api/repos/7/prs/329"
+```
+
+**Update PR title/body:**
+```bash
+curl -X PUT https://pilot.grit.bot/api/repos/7/prs/329 \
+  -H "Content-Type: application/json" \
+  -d '{"title": "New title", "body": "Updated description"}'
+```
+
+**Add comment to PR:**
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/7/prs/329/comment \
+  -H "Content-Type: application/json" \
+  -d '{"body": "Looks good, merging now."}'
+```
 
 ### Repository Management
 
@@ -299,6 +321,7 @@ curl -X POST https://pilot.grit.bot/api/services/1/restart
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/repos/<id>/merge_branch` | Merge branch (prefers GitHub API) |
+| POST | `/api/repos/<id>/sync_branch` | Reset a branch to match another (e.g. main) |
 | POST | `/api/repos/<id>/resolve_conflicts` | Resolve merge conflicts |
 | POST | `/api/repos/<id>/abort_merge` | Abort merge and cleanup |
 
@@ -331,6 +354,15 @@ curl -X POST https://pilot.grit.bot/api/services/1/restart
   "pr_number": 123               // Only if merged via GitHub API
 }
 ```
+
+**sync_branch - Reset a branch to match another:**
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/7/sync_branch \
+  -H "Content-Type: application/json" \
+  -d '{"branch": "claude/my-feature-xyz", "with": "main"}'
+```
+
+Use this after a PR is merged to bring the working branch back in sync with main, preventing merge conflicts on subsequent commits. The `"with"` parameter defaults to `"main"` if omitted.
 
 ### Agent Settings
 
