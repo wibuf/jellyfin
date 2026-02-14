@@ -208,6 +208,7 @@ curl -X POST https://pilot.grit.bot/api/repos/7/abort_merge
 | `400` on create issue | Missing fields | Include `repo`, `title`, `type` |
 | `400` on create PR | Branch not on GitHub | Push branch first: `git push -u origin <branch>` |
 | `409` on merge_branch | Merge conflicts | Use resolve_conflicts or abort_merge |
+| Worktree errors (`is not a working tree`, `not a git repository: .git/worktrees/...`) | Stale/broken worktree | `POST /api/repos/<id>/prune_worktrees` to clean up |
 
 If GitPilot is down, inform the user and use regular git/GitHub workflow.
 
@@ -326,6 +327,15 @@ curl -X POST https://pilot.grit.bot/api/repos/7/prs/329/comment \
 | POST | `/api/repos/<id>/sync_branch` | Reset a branch to match another (e.g. main) |
 | POST | `/api/repos/<id>/resolve_conflicts` | Resolve merge conflicts |
 | POST | `/api/repos/<id>/abort_merge` | Abort merge and cleanup |
+| POST | `/api/repos/<id>/prune_worktrees` | Clean up stale/broken worktree references |
+
+**prune_worktrees - Fix broken worktree errors:**
+If you encounter errors like `'...worktree' is not a working tree` or `not a git repository: .git/worktrees/...`, call this endpoint to clean up stale references:
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/7/prune_worktrees \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
 
 **merge_branch behavior:**
 - If an open PR exists for the branch, uses GitHub API to merge it properly
