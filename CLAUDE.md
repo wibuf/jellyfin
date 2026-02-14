@@ -14,8 +14,10 @@ GitPilot provides GitHub issue and PR management via API. This document explains
 | GooseFlix | 6 | `/api/repos/6/create_pr` |
 | GitPilot | 7 | `/api/repos/7/create_pr` |
 | Bacon | 8 | `/api/repos/8/create_pr` |
-| Jellyfin | 10 | `/api/repos/10/create_pr` |
+| jellyfin | 10 | `/api/repos/10/create_pr` |
 | jellyfin-web | 11 | `/api/repos/11/create_pr` |
+| BSucksBux | 13 | `/api/repos/13/create_pr` |
+| Neren | 14 | `/api/repos/14/create_pr` |
 
 ---
 
