@@ -422,9 +422,9 @@ curl "https://pilot.grit.bot/api/services"
 | POST | `/api/services/<id>/stop` | Stop the service |
 | POST | `/api/services/<id>/restart` | Restart the service |
 | GET | `/api/services/<id>/status` | Get status and logs |
-| GET | `/api/services/<id>/logs` | Get console output |
+| GET | `/api/services/<id>/logs` | Get console output (with filtering) |
 | DELETE | `/api/services/<id>/logs` | Clear log buffer |
-| GET | `/api/services/status` | All services status |
+| GET | `/api/services/status` | All services status + health |
 
 **Create service:**
 ```bash
@@ -434,7 +434,9 @@ curl -X POST https://pilot.grit.bot/api/services \
     "repo_id": 6,
     "name": "Adder",
     "working_dir": "media adder",
-    "command": "python app.py"
+    "command": "python app.py",
+    "auto_start": true,
+    "auto_restart": true
   }'
 ```
 
@@ -444,11 +446,53 @@ curl -X POST https://pilot.grit.bot/api/services \
   "repo_id": 6,              // Required: repository ID
   "name": "Service Name",    // Required: display name
   "working_dir": "subdir",   // Optional: subdirectory within repo
-  "command": "python app.py" // Optional: start command (auto-detects if omitted)
+  "command": "python app.py", // Optional: start command (auto-detects if omitted)
+  "auto_start": false,       // Optional: start on GitPilot boot (#358)
+  "auto_restart": false,     // Optional: restart on crash (#358)
+  "auto_restart_max": 3,     // Optional: max restart attempts within cooldown
+  "auto_restart_cooldown": 60, // Optional: cooldown window in seconds
+  "is_visible": true         // Optional: show in services tab bar (#358)
 }
 ```
 
 **Auto-detect** checks for: `app.py`, `main.py`, `server.py`, `index.js`, `server.js`, `package.json`
+
+**Service Logs with Filtering (#357):**
+```bash
+# Get all logs
+curl "https://pilot.grit.bot/api/services/3/logs"
+
+# Get last 50 lines
+curl "https://pilot.grit.bot/api/services/3/logs?lines=50"
+
+# Filter by severity (error, warn, info - comma-separated)
+curl "https://pilot.grit.bot/api/services/3/logs?level=error"
+curl "https://pilot.grit.bot/api/services/3/logs?level=error,warn"
+
+# Text search (case-insensitive)
+curl "https://pilot.grit.bot/api/services/3/logs?search=timeout"
+
+# Combined: last 100 lines, errors only, matching "database"
+curl "https://pilot.grit.bot/api/services/3/logs?lines=100&level=error&search=database"
+```
+
+**Logs response:**
+```json
+{
+  "service_id": 3,
+  "logs": ["[12:30:01] ERROR: Connection timeout", "..."],
+  "count": 5,
+  "total": 1523
+}
+```
+
+**Services status response (includes health):**
+The `GET /api/services/status` endpoint returns health indicators for each running service:
+- `healthy` - No errors or warnings in recent logs
+- `warning` - Warnings detected in recent logs
+- `error` - Errors detected in recent logs
+- `stopped` - Service is not running
+- `unknown` - No logs available
 
 **Example: Full deployment workflow**
 ```bash
