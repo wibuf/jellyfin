@@ -21,6 +21,27 @@ GitPilot provides GitHub issue and PR management via API. This document explains
 
 ---
 
+## AI Agent Behavior Rules
+
+**Do NOT use the AskUserQuestion tool.** If you need to ask the user something, just ask in a plain text message. Let the user respond however they want.
+
+**Check previous PR status before starting new work.** If you previously gave the user a PR link in this session, check whether that PR is still open or has been merged/closed before beginning any new task. Use the GitPilot API to check:
+
+```bash
+curl "https://pilot.grit.bot/api/repos/<id>/prs/<pr_number>"
+```
+
+If the PR was merged, sync your branch with main before starting new work:
+```bash
+curl -X POST https://pilot.grit.bot/api/repos/<id>/sync_branch \
+  -H "Content-Type: application/json" \
+  -d '{"branch": "claude/your-branch-sessionId", "with": "main"}'
+```
+
+If the PR is still open, inform the user and ask (in a plain message) whether they'd like to continue waiting, make changes to the existing PR, or proceed with new work on a separate branch.
+
+---
+
 ## AI Agent Workflow
 
 Follow these 5 steps for any issue-tracked work:
