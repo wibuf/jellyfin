@@ -2,6 +2,34 @@
 
 GitPilot provides GitHub issue and PR management via API. This document explains how AI agents should use it.
 
+## MCP Tools (Preferred)
+
+When running in Claude Code (CLI or Web), you have MCP tools available that wrap the GitPilot API. **Prefer MCP tools over raw curl commands** — they're cleaner and handle errors better.
+
+### GitPilot MCP Server (33 tools)
+Issues: `create_issue`, `list_issues`, `get_issue`, `update_issue`, `close_issue`, `reopen_issue`, `comment_on_issue`
+PRs: `create_pr`, `list_prs`, `get_pr`, `update_pr`, `comment_on_pr`, `close_pr`
+Repos: `list_repos`, `get_repo`, `list_branches`, `delete_branch`, `list_commits`, `pull_repo`, `rollback_repo`
+Deploy: `merge_branch`, `sync_branch`, `resolve_conflicts`, `abort_merge`, `deploy`
+Services: `list_services`, `services_status`, `service_logs`, `start_service`, `stop_service`, `restart_service`
+System: `system_status`, `check_updates`
+
+### Browser MCP Server (9 tools)
+HTTP: `fetch_page`, `search_web`, `fetch_json`
+Playwright: `browser_navigate`, `browser_click`, `browser_type`, `browser_screenshot`, `browser_get_text`, `browser_evaluate`
+
+### Skills (Slash Commands)
+- `/deploy [repo]` — Merge PR, pull, restart service
+- `/check-status [repo]` — Dashboard of services, PRs, and issues
+- `/new-issue [title]` — Quick issue creation
+- `/review-pr [#number or repo]` — Read PR diff and post a code review
+- `/logs [service] [--errors] [--search=term]` — View and filter service logs
+- `/rollback [repo] [commit]` — Roll back a repo to a previous commit
+- `/browse [url]` — Fetch and summarize a web page
+- `/hotfix [description]` — Fix → PR → merge → deploy in one shot
+
+---
+
 ## Repository ID Mapping
 
 | Repository | ID | Example Endpoint |
